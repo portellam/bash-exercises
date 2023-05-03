@@ -7,44 +7,63 @@
 # Maintainer(s):    Alex Portell <github.com/portellam>
 #
 
+# TODO:
+#    test functions
+#       -var type validation    good
+#       -var comp validation    pending
+#       -var ref validation     pending
+#       -var value validation   pending
+#       -file type validation   pending
+#       -file comp validation   pending
+
 # <summary> Variable type validation </summary>
 # <functions>
     function IsBool
     {
-        [ "$1" == true || "$1" == false ]
+        [[ "$1" == true ]] \
+        || [[ "$1" == false ]]
         return "$?"
     }
 
-    function IsInteger
+    function IsInt
     {
-        [ "$1" =~ ^[0-9]+$ ]
+        [[ "$1" =~ ^[0-9]+$ ]] \
+        || [[ "$1" =~ ^[-][0-9]+$ ]]
         return "$?"
     }
 
     function IsList
     {
-        local -a LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\${$1[@]}\""
-        eval "$GET_LIST"
-        IsNonZero "${#LIST_REFERENCE[@]}"
+        local -r GET_LIST_LENGTH="echo \"\${#$1[@]}\""
+        local -i LIST_LENGTH=$( eval "$GET_LIST_LENGTH" )
+        IsNonZero "$LIST_LENGTH" || return "$?"
         return "$?"
+    }
+
+    function IsIndexList
+    {
+        IsList "$1" || return "$?"
+        local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
+        local IS_INDEX_LIST=true
+
+        for KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
+            IsNum "$KEY" || return "$?"
+        done
+
+        return 0
     }
 
     function IsKeyValueList
     {
-        local -a LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\${$1[@]}\""
-        eval "$GET_LIST"
-        IsNonZero "${#LIST_REFERENCE[@]}" || return "$?"
-        local IS_INDEX_LIST=true
+        IsList "$1" || return "$?"
+        local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
+        local IS_ASSOCIATIVE_LIST=false
 
-        for KEY in "${!LIST_REFERENCE[@]}"; do
-            IsNum "$KEY" && continue
-            IS_INDEX_LIST=false
-            break
+        for KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
+            IsNum "$KEY" || IS_ASSOCIATIVE_LIST=true
         done
 
-        eval "$IS_INDEX_LIST"
+        eval "$IS_ASSOCIATIVE_LIST"
         return "$?"
     }
 
@@ -72,6 +91,22 @@
     function AreNotEqual
     {
         [ "$1" != "$2" ]
+        return "$?"
+    }
+
+    function IsDecimal
+    {
+        [[ "$1" =~ ^[0-9]+[.]+[0-9]$ ]] \
+        || [[ "$1" =~ ^[-][0-9]+[.]+[0-9]$ ]]
+        return "$?"
+    }
+
+    function IsFraction
+    {
+        [[ "$1" =~ ^[0-9]+[/][1-9]+$ ]] \
+        || [[ "$1" =~ ^[-][0-9]+[/][1-9]+$ ]] \
+        || [[ "$1" =~ ^[0-9]+[/][-][1-9]+$ ]] \
+        || [[ "$1" =~ ^[-][0-9]+[/][-][1-9]+$ ]]
         return "$?"
     }
 
@@ -132,7 +167,7 @@
         IsNotNull || return "$?"
 
         local -a LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\${$1[@]}\""
+        local -r GET_LIST="LIST_REFERENCE=\"\${$1[@]}\""
         eval "$GET_LIST"
         IsNonZero "${#LIST_REFERENCE[@]}" || return "$?"
 
@@ -148,7 +183,7 @@
         IsNotNull "$3" || return "$?"
         HasKey "$1" "$2" || return "$?"
         local LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\${$1[@]}\""
+        local -r GET_LIST="LIST_REFERENCE=\"\${$1[@]}\""
         eval "$GET_LIST"
         local -r KEY="$2"
         local -r VALUE="$3"
@@ -162,7 +197,7 @@
     {
         HasKey "$1" "$2" || return "$?"
         local LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\${$1[@]}\""
+        local -r GET_LIST="LIST_REFERENCE=\"\${$1[@]}\""
         eval "$GET_LIST"
         local -r KEY="$2"
         unset LIST_REFERENCE[$KEY] || return "$?"
