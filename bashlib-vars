@@ -10,9 +10,9 @@
 # TODO:
 #    test functions
 #       -var type validation    good
-#       -var comp validation    pending
-#       -var ref validation     pending
-#       -var value validation   pending
+#       -var comp validation    good
+#       -var ref validation     good
+#       -var ref validation   pending
 #       -file type validation   pending
 #       -file comp validation   pending
 
@@ -32,7 +32,7 @@
         return "$?"
     }
 
-    function IsList
+    function IsEnum
     {
         local -r GET_LIST_LENGTH="echo \"\${#$1[@]}\""
         local -i LIST_LENGTH=$( eval "$GET_LIST_LENGTH" )
@@ -40,11 +40,10 @@
         return "$?"
     }
 
-    function IsIndexList
+    function IsArray
     {
-        IsList "$1" || return "$?"
+        IsEnum "$1" || return "$?"
         local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
-        local IS_INDEX_LIST=true
 
         for KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
             IsNum "$KEY" || return "$?"
@@ -53,17 +52,17 @@
         return 0
     }
 
-    function IsKeyValueList
+    function IsList
     {
-        IsList "$1" || return "$?"
+        IsEnum "$1" || return "$?"
         local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
-        local IS_ASSOCIATIVE_LIST=false
+        local IS_LIST=false
 
         for KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
-            IsNum "$KEY" || IS_ASSOCIATIVE_LIST=true
+            IsNum "$KEY" || IS_LIST=true
         done
 
-        eval "$IS_ASSOCIATIVE_LIST"
+        eval "$IS_LIST"
         return "$?"
     }
 
@@ -84,13 +83,13 @@
 # <functions>
     function AreEqual
     {
-        [ "$1" == "$2" ]
+        [[ "$1" == "$2" ]]
         return "$?"
     }
 
     function AreNotEqual
     {
-        [ "$1" != "$2" ]
+        [[ "$1" != "$2" ]]
         return "$?"
     }
 
@@ -110,25 +109,25 @@
         return "$?"
     }
 
-    function IsGreaterThan
+    function IsGreater
     {
         [[ "$1" -gt "$2" ]]
         return "$?"
     }
 
-    function IsGreaterThanOrEqual
+    function IsGreaterOrEqual
     {
         [[ "$1" -ge "$2" ]]
         return "$?"
     }
 
-    function IsLessThan
+    function IsLess
     {
         [[ "$1" -lt "$2" ]]
         return "$?"
     }
 
-    function IsLessThanOrEqual
+    function IsLessOrEqual
     {
         [[ "$1" -le "$2" ]]
         return "$?"
@@ -149,6 +148,21 @@
 
 # <summary> Variable reference validation </summary>
 # <functions>
+    function HasKey
+    {
+        IsNotNull "$2" || return "$?"
+        IsNotNull "$1" || return "$?"
+        IsEnum "$1" || return "$?"
+        local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
+        local -r KEY="$2"
+
+        for THIS_KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
+            AreEqual "$THIS_KEY" "$KEY" && return "$?"
+        done
+
+        return 1
+    }
+
     function HasValue
     {
         local REFERENCE
@@ -159,25 +173,8 @@
     }
 # </functions>
 
-# <summary> Variable value modification </summary>
+# <summary> Variable reference modification </summary>
 # <functions>
-    function HasKey
-    {
-        local -r KEY="$2"
-        IsNotNull || return "$?"
-
-        local -a LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\"\${$1[@]}\""
-        eval "$GET_LIST"
-        IsNonZero "${#LIST_REFERENCE[@]}" || return "$?"
-
-        for THIS_KEY in "${GET_LIST[@]}"; do
-            AreEqual "$THIS_KEY" "$KEY" && return "$?"
-        done
-
-        return 1
-    }
-
     function InsertValueAtKey
     {
         IsNotNull "$3" || return "$?"
@@ -326,13 +323,13 @@
         return "$?"
     }
 
-    function IsNewerThan
+    function IsNewer
     {
         [ "$1" -nt "$2" ]
         return "$?"
     }
 
-    function IsOlderThan
+    function IsOlder
     {
         [ "$1" -ot "$2" ]
         return "$?"
