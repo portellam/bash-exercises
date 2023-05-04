@@ -7,6 +7,8 @@
 # Maintainer(s):    Alex Portell <github.com/portellam>
 #
 
+source bashlib-vars
+
 declare -gA IOMMU_GROUP_DEVICE_LIST
 declare -g _REGEX_DOMAIN_ID='^[0-9A-F][1-9A-F]$'
 
@@ -89,7 +91,7 @@ function GetDevicesListForIOMMUGroup
             [IS_VGA]="$IS_VGA"
         )
 
-        # PrintKeyAndValue "THIS_DEVICE"
+        # PrintList "THIS_DEVICE"
 
         [[ "${#THIS_DEVICE[@]}" -eq 0 ]] && continue
         THIS_IOMMU_GROUP_LIST[$DEVICE_INDEX]="${THIS_DEVICE[@]}"
@@ -105,7 +107,7 @@ function GetDevicesListForIOMMUGroup
 
     for VALUE in ${!THIS_IOMMU_GROUP_LIST[@]}; do
         local -A LIST="${VALUE[@]}"
-        PrintKeyAndValue "LIST"
+        PrintList "LIST"
     done
 
     return 0
