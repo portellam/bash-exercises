@@ -33,16 +33,16 @@ function IsDeviceVGA
     return 1
 }
 
-function IsDeviceNotBindedToVFIO
+function IsDeviceBindedToVFIO
 {
     local -l DRIVER="$1"
 
     case "$DRIVER" in
         *"vfio-pci"* | *"vfio"* )
-            return 1 ;;
+            return 0 ;;
     esac
 
-    return 0
+    return 1
 }
 
 function GetDevicesListForIOMMUGroup
@@ -51,13 +51,13 @@ function GetDevicesListForIOMMUGroup
     local -A THIS_IOMMU_GROUP_LIST
     local -a THIS_DEVICE_LIST=$( ls /sys/kernel/iommu_groups/$IOMMU_GROUP/devices/ )
     local HAS_VFIO=false
-    local HAS_EXTERNAL=false
+    local HAS_EXT=false
     local HAS_VGA=false
     local -i DEVICE_INDEX=0
 
     for FULL_ID in ${THIS_DEVICE_LIST[@]}; do
         local IS_VFIO=false
-        local IS_EXTERNAL=false
+        local IS_EXT=false
         local IS_VGA=false
 
         CLASS="$( lspci -ms $FULL_ID | cut -d '"' -f 2 )"
@@ -67,13 +67,13 @@ function GetDevicesListForIOMMUGroup
         NAME="$( lspci -ms $FULL_ID  | cut -d '"' -f 6 )"
         VENDOR="$( lspci -ms $FULL_ID | cut -d '"' -f 4 )"
 
-        IsDeviceNotBindedToVFIO "$DRIVER" \
+        IsDeviceBindedToVFIO "$DRIVER" \
         && HAS_VFIO=true \
         && IS_VFIO=true
 
         IsDeviceExternal "$DOMAIN_ID" \
-        && HAS_EXTERNAL=true \
-        && IS_EXTERNAL=true
+        && HAS_EXT=true \
+        && IS_EXT=true
 
         IsDeviceVGA "$CLASS" \
         && HAS_VGA=true \
@@ -87,7 +87,7 @@ function GetDevicesListForIOMMUGroup
             # [NAME]="$NAME"
             # [VENDOR]="$VENDOR"
             [IS_VFIO]="$IS_VFIO"
-            [IS_EXTERNAL]="$IS_EXTERNAL"
+            [IS_EXT]="$IS_EXT"
             [IS_VGA]="$IS_VGA"
         )
 
@@ -101,13 +101,21 @@ function GetDevicesListForIOMMUGroup
     [[ "${#THIS_IOMMU_GROUP_LIST[@]}" -eq 0 ]] && return 1
 
     THIS_IOMMU_GROUP_LIST[HAS_VFIO]="$HAS_VFIO"
-    THIS_IOMMU_GROUP_LIST[HAS_EXTERNAL]="$HAS_EXTERNAL"
+    THIS_IOMMU_GROUP_LIST[HAS_EXT]="$HAS_EXT"
     THIS_IOMMU_GROUP_LIST[HAS_VGA]="$HAS_VGA"
     IOMMU_GROUP_LIST[$IOMMU_GROUP]="${THIS_IOMMU_GROUP_LIST[@]}"
 
-    for VALUE in ${!THIS_IOMMU_GROUP_LIST[@]}; do
-        local -A LIST="${VALUE[@]}"
-        PrintList "LIST"
+    for KEY_1 in ${!THIS_IOMMU_GROUP_LIST[@]}; do
+        local -A VALUE_1="${THIS_IOMMU_GROUP_LIST[$KEY_1]}"
+
+        for KEY_2 in ${!VALUE_1[@]}; do
+            local -A VALUE_2="${VALUE_1[$KEY_2]}"
+
+            for KEY_3 in ${!VALUE_2[@]}; do
+                local -A VALUE_3="${VALUE_2[$KEY_2]}"
+                PrintList "VALUE_3"
+            done
+        done
     done
 
     return 0
