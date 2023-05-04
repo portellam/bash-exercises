@@ -12,7 +12,7 @@
 #       -var type validation    good
 #       -var comp validation    good
 #       -var ref validation     good
-#       -var ref validation   pending
+#       -var ref modification   pending
 #       -file type validation   pending
 #       -file comp validation   pending
 
@@ -34,19 +34,16 @@
 
     function IsEnum
     {
-        local -r GET_LIST_LENGTH="echo \"\${#$1[@]}\""
-        local -i LIST_LENGTH=$( eval "$GET_LIST_LENGTH" )
-        IsNonZero "$LIST_LENGTH" || return "$?"
+        IsNonZero "$( eval "echo \"\${#$1[@]}\"" )" || return "$?"
         return "$?"
     }
 
     function IsArray
     {
         IsEnum "$1" || return "$?"
-        local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
 
-        for KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
-            IsNum "$KEY" || return "$?"
+        for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+            IsInt "$KEY" || return 1
         done
 
         return 0
@@ -55,15 +52,12 @@
     function IsList
     {
         IsEnum "$1" || return "$?"
-        local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
-        local IS_LIST=false
 
-        for KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
-            IsNum "$KEY" || IS_LIST=true
+        for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+            IsInt "$KEY" || return 0
         done
 
-        eval "$IS_LIST"
-        return "$?"
+        return 1
     }
 
     function IsNotNull
@@ -153,11 +147,9 @@
         IsNotNull "$2" || return "$?"
         IsNotNull "$1" || return "$?"
         IsEnum "$1" || return "$?"
-        local -r GET_KEYS_FROM_LIST="echo \"\${!$1[@]}\""
-        local -r KEY="$2"
 
-        for THIS_KEY in $( eval "$GET_KEYS_FROM_LIST" ); do
-            AreEqual "$THIS_KEY" "$KEY" && return "$?"
+        for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+            AreEqual "$KEY" "$2" && return "$?"
         done
 
         return 1
@@ -165,17 +157,52 @@
 
     function HasValue
     {
-        local REFERENCE
-        local -r GET_REFERENCE='REFERENCE="$1"'
-        eval "$GET_REFERENCE"
-        [ -v "$REFERENCE" ]
+        local -n REFERENCE="$1"
+        echo "'${!REFERENCE}'"
+        [ -v "${!REFERENCE}" ] || IsEnum "$1"
         return "$?"
     }
 # </functions>
 
 # <summary> Variable reference modification </summary>
 # <functions>
-    function InsertValueAtKey
+    function AddKey
+    {
+        HasKey "$1" "$2" || return "$?"
+        set $( echo "$1[$2]" ) || return "$?"
+        return "$?"
+    }
+
+    # function AddValueToKey
+    # {
+    #     HasKey "$1" "$2" || return "$?"
+
+    #     if IsArray $( echo "$1[$2]" ); then
+
+    #     elif IsList $( echo "$1[$2]" ); then
+    #         local -i LEN=$( echo "${\#1[$2]}" )
+    #     else
+    #         return 1
+    #     fi
+
+    #     local -a nested_array=$( echo ${list[$key]})
+    #     local -i nested_array_length=${#nested_array[@]}
+    #     nested_array[$nested_array_length]="$value"
+
+    #     echo ${nested_array_length}
+
+    #     set $( echo "$1[$2]" ) || return "$?"
+    #     return "$?"
+    # }
+
+    function RemoveKey
+    {
+        HasKey "$1" "$2" || return "$?"
+        unset $( echo "$1[$2]" ) || return "$?"
+        return "$?"
+    }
+
+    function ReplaceValueAtKey
     {
         IsNotNull "$3" || return "$?"
         HasKey "$1" "$2" || return "$?"
@@ -185,19 +212,6 @@
         local -r KEY="$2"
         local -r VALUE="$3"
         LIST_REFERENCE[$KEY]="$VALUE"
-        local -r SET_LIST="$1=\${LIST_REFERENCE[@]}\""
-        eval "$SET_LIST"
-        return "$?"
-    }
-
-    function RemoveKey
-    {
-        HasKey "$1" "$2" || return "$?"
-        local LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\"\${$1[@]}\""
-        eval "$GET_LIST"
-        local -r KEY="$2"
-        unset LIST_REFERENCE[$KEY] || return "$?"
         local -r SET_LIST="$1=\${LIST_REFERENCE[@]}\""
         eval "$SET_LIST"
         return "$?"
@@ -290,7 +304,7 @@
         return "$?"
     }
 
-    function IsFileSymbolicLink
+    function IsFileSymLink
     {
         [ -L "$1" ] || [ -h "$1" ]
         return "$?"
@@ -335,3 +349,15 @@
         return "$?"
     }
 # </functions>
+
+function PrintKeyAndValue
+{
+    IsEnum "$1" || return "$?"
+
+    for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+        local VALUE=$( eval "echo \"\${$1[$KEY]}\"" )
+        echo -e "$KEY\t=> $VALUE"
+    done
+
+    return 1
+}
