@@ -350,7 +350,7 @@
     }
 # </functions>
 
-function PrintKeyAndValue
+function PrintList
 {
     IsEnum "$1" || return "$?"
 
