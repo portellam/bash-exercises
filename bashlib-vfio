@@ -253,7 +253,6 @@ function SetListsForHostAndVFIO_IOMMUGroups
             fi
         fi
     done
-
     return 0
 }
 
@@ -266,7 +265,7 @@ SetListsForHostAndVFIO_IOMMUGroups
 # echo
 # PrintList "IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA"
 
-for DEVICE in ${IOMMU_GROUP_ID_LIST_WITH_EXTERNAL[@]}; do
+for DEVICE in ${IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA[@]}; do
     echo $DEVICE
     declare CLASS
     SetDeviceClass "$DEVICE" "CLASS"
