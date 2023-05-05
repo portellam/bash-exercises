@@ -10,22 +10,67 @@
 source bashlib-vars
 
 declare -gA IOMMU_GROUP_DEVICE_LIST
-declare -g _REGEX_DOMAIN_ID='^[0-9A-F][1-9A-F]$'
+declare -g REGEX_DOMAIN_ID='^[0-9A-F][1-9A-F]$'
 
-function IsDeviceExternal
+function DoesIOMMUGroupHaveExternalDevices
 {
-    if ! echo "$1" | grep -E -q "$_REGEX_DOMAIN_ID"; then
-        return 1
-    fi
+    IsInt "$1" || return "$?"
+    local -i IOMMU_GROUP_ID="$1"
+    local -a DEVICE_LIST="$( ls /sys/kernel/iommu_groups/$IOMMU_GROUP_ID/devices/ )"
+
+    for DEVICE in ${DEVICE_LIST[@]}; do
+        IsDeviceExternal "$DEVICE" && return 0
+    done
+
+    return 1
+}
+
+function DoesIOMMUGroupHaveVGADevice
+{
+    IsInt "$1" || return "$?"
+    local -i IOMMU_GROUP_ID="$1"
+    local -a DEVICE_LIST="$( ls /sys/kernel/iommu_groups/$IOMMU_GROUP_ID/devices/ )"
+
+    for DEVICE in ${DEVICE_LIST[@]}; do
+        IsDeviceVGA "$DEVICE" && return 0
+    done
+
+    return 1
+}
+
+function IsIOMMUGroupNotBindedToVFIO
+{
+    IsInt "$1" || return "$?"
+    local -i IOMMU_GROUP_ID="$1"
+    local -a DEVICE_LIST=$( ls /sys/kernel/iommu_groups/$IOMMU_GROUP_ID/devices/ )
+
+    for DEVICE in ${DEVICE_LIST[@]}; do
+        IsDeviceBindedToVFIO "$DEVICE" || return 1
+    done
 
     return 0
 }
 
+function IsDeviceExternal
+{
+    IsNotNull "$1" || return "$?"
+    local FULL_ID="$1"
+    local -u DOMAIN_ID=$( echo "$FULL_ID" | cut -d ':' -f 2 )
+
+    if echo "$DOMAIN_ID" | grep -E -q "$REGEX_DOMAIN_ID"; then
+        return 0
+    fi
+
+    return 1
+}
+
 function IsDeviceVGA
 {
-    local -l _CLASS="$1"
+    IsNotNull "$1" || return "$?"
+    local FULL_ID="$1"
+    local -l CLASS="$( lspci -ms $FULL_ID | cut -d '"' -f 2 )"
 
-    case "$_CLASS" in
+    case "$CLASS" in
         *"vga"* | *"graphic"* )
             return 0 ;;
     esac
@@ -35,7 +80,9 @@ function IsDeviceVGA
 
 function IsDeviceBindedToVFIO
 {
-    local -l DRIVER="$1"
+    IsNotNull "$1" || return "$?"
+    local FULL_ID="$1"
+    local -l DRIVER="$( lspci -ks "$FULL_ID" | grep -i "driver" | cut -d " " -f 5 )"
 
     case "$DRIVER" in
         *"vfio-pci"* | *"vfio"* )
@@ -45,95 +92,223 @@ function IsDeviceBindedToVFIO
     return 1
 }
 
+function SetDeviceClass
+{
+    IsNotNull "$2" || return "$?"
+    IsNotNull "$1" || return "$?"
+    local DEVICE="$1"
+    local -n REFERENCE="$2"
+    REFERENCE="$( lspci -ms $DEVICE | cut -d '"' -f 2 )"
+    return 0
+}
+
+function SetDeviceDriver
+{
+    IsNotNull "$2" || return "$?"
+    IsNotNull "$1" || return "$?"
+    local DEVICE="$1"
+    local -n REFERENCE="$2"
+    REFERENCE="$( lspci -ks "$DEVICE" | grep -i "driver" | cut -d " " -f 5 )"
+    return 0
+}
+
+function SetDeviceHardwareID
+{
+    IsNotNull "$2" || return "$?"
+    IsNotNull "$1" || return "$?"
+    local DEVICE="$1"
+    local -n REFERENCE="$2"
+    REFERENCE="$( lspci -ns $DEVICE | cut -d " " -f 3 )"
+    return 0
+}
+
+function SetDeviceName
+{
+    IsNotNull "$2" || return "$?"
+    IsNotNull "$1" || return "$?"
+    local DEVICE="$1"
+    local -n REFERENCE="$2"
+    REFERENCE="$( lspci -ms $DEVICE  | cut -d '"' -f 6 )"
+    return 0
+}
+
+function SetDeviceVendor
+{
+    IsNotNull "$2" || return "$?"
+    IsNotNull "$1" || return "$?"
+    local DEVICE="$1"
+    local -n REFERENCE="$2"
+    REFERENCE="$( lspci -ms $DEVICE | cut -d '"' -f 4 )"
+    return 0
+}
+
 function GetDevicesListForIOMMUGroup
 {
-    local -i IOMMU_GROUP="$1"
-    local -A THIS_IOMMU_GROUP_LIST
+    # <summary> Get variables and references. </summary>
+    local -n LIST_REF="$1"
+    local -i IOMMU_GROUP="$2"
+
+    # <summary> Declare lists for this IOMMU group. </summary>
     local -a THIS_DEVICE_LIST=$( ls /sys/kernel/iommu_groups/$IOMMU_GROUP/devices/ )
-    local HAS_VFIO=false
-    local HAS_EXT=false
+    local -A THIS_IOMMU_GROUP_LIST
+
+    # <summary> Declare Keys </summary>
+    # local HAS_EXT=false
+    # local HAS_VFIO=false
     local HAS_VGA=false
     local -i DEVICE_INDEX=0
 
+    # <summary> Loop through this IOMMU group's devices. </summary>
     for FULL_ID in ${THIS_DEVICE_LIST[@]}; do
-        local IS_VFIO=false
-        local IS_EXT=false
-        local IS_VGA=false
+
+        # <summary> Get values for keys. </summary>
+        # local IS_EXT=false                                    # unused.
+        # local IS_VFIO=false                                   # unused.
+        # local IS_VGA=false                                    # unused.
 
         CLASS="$( lspci -ms $FULL_ID | cut -d '"' -f 2 )"
         local -l DOMAIN_ID=$( echo "$FULL_ID" | cut -d ':' -f 2 )
         DRIVER="$( lspci -ks $FULL_ID | grep -i "driver" | cut -d " " -f 5 )"
-        HWID="$( lspci -ns $FULL_ID | cut -d " " -f 3 )"
-        NAME="$( lspci -ms $FULL_ID  | cut -d '"' -f 6 )"
-        VENDOR="$( lspci -ms $FULL_ID | cut -d '"' -f 4 )"
+        # HWID="$( lspci -ns $FULL_ID | cut -d " " -f 3 )"      # unused.
+        # NAME="$( lspci -ms $FULL_ID  | cut -d '"' -f 6 )"     # unused.
+        # VENDOR="$( lspci -ms $FULL_ID | cut -d '"' -f 4 )"    # unused.
 
-        IsDeviceBindedToVFIO "$DRIVER" \
-        && HAS_VFIO=true \
-        && IS_VFIO=true
+        # IsDeviceBindedToVFIO "$DRIVER" \
+        # && HAS_VFIO=true \
+        # && IS_VFIO=true
 
-        IsDeviceExternal "$DOMAIN_ID" \
-        && HAS_EXT=true \
-        && IS_EXT=true
+        # IsDeviceExternal "$DOMAIN_ID" \
+        # && HAS_EXT=true \
+        # && IS_EXT=true
 
         IsDeviceVGA "$CLASS" \
         && HAS_VGA=true \
-        && IS_VGA=false
+        # && IS_VGA=true
 
+        # <summary> Set values for keys. </summary>
         declare -A THIS_DEVICE=(
             [FULL_ID]="$FULL_ID"
+
+            # <summary> Unused keys; can always refence values by invoking 'lspci' with PCI bus ID. </summary>
+            # [HWID]="$HWID"
+            # [IS_VFIO]="$IS_VFIO"
+            # [IS_EXT]="$IS_EXT"
+            # [IS_VGA]="$IS_VGA"
+
             # [CLASS]="$CLASS"
             # [DRIVER]="$DRIVER"
-            [HWID]="$HWID"
             # [NAME]="$NAME"
             # [VENDOR]="$VENDOR"
-            [IS_VFIO]="$IS_VFIO"
-            [IS_EXT]="$IS_EXT"
-            [IS_VGA]="$IS_VGA"
-        )
+            )
 
+        # <summary> Debug output. </summary>
         # PrintList "THIS_DEVICE"
 
+        # <summary> If valid, set pairs to list. </summary>
         [[ "${#THIS_DEVICE[@]}" -eq 0 ]] && continue
         THIS_IOMMU_GROUP_LIST[$DEVICE_INDEX]="${THIS_DEVICE[@]}"
         (( DEVICE_INDEX++ ))
     done
 
+    # <summary> Exit as fail if list is empty. </summary>
     [[ "${#THIS_IOMMU_GROUP_LIST[@]}" -eq 0 ]] && return 1
 
-    THIS_IOMMU_GROUP_LIST[HAS_VFIO]="$HAS_VFIO"
-    THIS_IOMMU_GROUP_LIST[HAS_EXT]="$HAS_EXT"
+    # <summary> Set values for keys. </summary>
+    # THIS_IOMMU_GROUP_LIST[HAS_VFIO]="$HAS_VFIO"
+    # THIS_IOMMU_GROUP_LIST[HAS_EXT]="$HAS_EXT"
     THIS_IOMMU_GROUP_LIST[HAS_VGA]="$HAS_VGA"
-    IOMMU_GROUP_LIST[$IOMMU_GROUP]="${THIS_IOMMU_GROUP_LIST[@]}"
 
-    for KEY_1 in ${!THIS_IOMMU_GROUP_LIST[@]}; do
-        local -A VALUE_1="${THIS_IOMMU_GROUP_LIST[$KEY_1]}"
+    # <summary> Set valid pairs to list. </summary>
+    LIST_REF[$IOMMU_GROUP]="${THIS_IOMMU_GROUP_LIST[@]}"
+    return 0
+}
 
-        for KEY_2 in ${!VALUE_1[@]}; do
-            local -A VALUE_2="${VALUE_1[$KEY_2]}"
+declare -A IOMMU_GROUP_DEVICE_LIST
+declare -a IOMMU_GROUP_ID_LIST=$( ls /sys/kernel/iommu_groups/ )
+declare -A IOMMU_GROUP_ID_LIST_WITH_INTERNAL IOMMU_GROUP_ID_LIST_WITH_EXTERNAL IOMMU_GROUP_ID_LIST_WITH_INTERNAL_VGA IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA
 
-            for KEY_3 in ${!VALUE_2[@]}; do
-                local -A VALUE_3="${VALUE_2[$KEY_2]}"
-                PrintList "VALUE_3"
-            done
-        done
+function SetListsForHostAndVFIO_IOMMUGroups
+{
+    for IOMMU_GROUP_ID in ${IOMMU_GROUP_ID_LIST[@]}; do
+        # IsIOMMUGroupNotBindedToVFIO "$IOMMU_GROUP_ID" || return "$?"
+
+        local HAS_EXTERNAL=false
+        local HAS_VGA=false
+        local -a DEVICE_LIST=$( ls /sys/kernel/iommu_groups/$IOMMU_GROUP_ID/devices/ )
+
+        DoesIOMMUGroupHaveExternalDevices "$IOMMU_GROUP_ID" && HAS_EXTERNAL=true
+        DoesIOMMUGroupHaveVGADevice "$IOMMU_GROUP_ID" && HAS_VGA=true
+
+        if "$HAS_EXTERNAL"; then
+            if "$HAS_VGA"; then
+                IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA["$IOMMU_GROUP_ID"]="${DEVICE_LIST[@]}"
+            else
+                IOMMU_GROUP_ID_LIST_WITH_EXTERNAL["$IOMMU_GROUP_ID"]="${DEVICE_LIST[@]}"
+            fi
+        else
+            if "$HAS_VGA"; then
+                IOMMU_GROUP_ID_LIST_WITH_INTERNAL_VGA["$IOMMU_GROUP_ID"]="${DEVICE_LIST[@]}"
+            else
+                IOMMU_GROUP_ID_LIST_WITH_INTERNAL["$IOMMU_GROUP_ID"]="${DEVICE_LIST[@]}"
+            fi
+        fi
     done
 
     return 0
 }
 
-declare -a IOMMU_GROUP_ID_LIST=$( ls /sys/kernel/iommu_groups/ )
+SetListsForHostAndVFIO_IOMMUGroups
+# PrintList "IOMMU_GROUP_ID_LIST_WITH_INTERNAL"
+# echo
+# PrintList "IOMMU_GROUP_ID_LIST_WITH_INTERNAL_VGA"
+# echo
+# PrintList "IOMMU_GROUP_ID_LIST_WITH_EXTERNAL"
+# echo
+# PrintList "IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA"
 
-for IOMMU_GROUP_ID in ${IOMMU_GROUP_ID_LIST[@]}; do
-    GetDevicesListForIOMMUGroup "$IOMMU_GROUP_ID"
-    echo
+for DEVICE in ${IOMMU_GROUP_ID_LIST_WITH_EXTERNAL[@]}; do
+    echo $DEVICE
+    declare CLASS
+    SetDeviceClass "$DEVICE" "CLASS"
+    echo $CLASS
 done
 
-# echo "${IOMMU_GROUP_LIST[13]}"
 
-# for IOMMU_GROUP_KEY in ${!IOMMU_GROUP_LIST[@]}; do
-#     for DEVICE_KEY in ${IOMMU_GROUP_KEY[$IOMMU_GROUP_KEY]}; do
-#         echo -e "$IOMMU_GROUP_KEY\t=> $DEVICE_KEY\n"
+# for IOMMU_GROUP_ID in ${IOMMU_GROUP_ID_LIST[@]}; do
+#     GetDevicesListForIOMMUGroup "IOMMU_GROUP_DEVICE_LIST" "$IOMMU_GROUP_ID"
+# done
+
+# IOMMU_GROUP_DEVICE_LIST=( $( sort -u <<<${IOMMU_GROUP_DEVICE_LIST[*]} ) )
+
+# for IOMMU_GROUP_DEVICE_KEY in ${!IOMMU_GROUP_DEVICE_LIST[@]}; do
+#     declare -A DEVICE_LIST="${IOMMU_GROUP_DEVICE_LIST[$IOMMU_GROUP_DEVICE_KEY]}"
+
+#     PrintList "DEVICE_LIST"
+# done
+
+# PrintList "IOMMU_GROUP_DEVICE_LIST"
+
+# VAL="${IOMMU_GROUP_DEVICE_LIST[1]}"
+# echo "${VAL[HAS_VGA]}"
+# echo
+
+# DEVICE_LIST="${IOMMU_GROUP_DEVICE_LIST[1]}"
+# PrintList "DEVICE_LIST"
+# echo
+# echo "${IOMMU_GROUP_DEVICE_LIST[1]}"
+
+# for IOMMU_GROUP_DEVICE_KEY in ${!IOMMU_GROUP_DEVICE_LIST[@]}; do
+#     declare -A DEVICE_LIST="${IOMMU_GROUP_DEVICE_LIST[$IOMMU_GROUP_DEVICE_KEY]}"
+
+#     echo -e "$IOMMU_GROUP_DEVICE_KEY\t=> $DEVICE_LIST\n"
+# done
+
+
+# for IOMMU_GROUP_DEVICE_KEY in ${!IOMMU_GROUP_DEVICE_LIST[@]}; do
+#     declare -A DEVICE_LIST="${IOMMU_GROUP_DEVICE_LIST[$IOMMU_GROUP_DEVICE_KEY]}"
+
+#     for DEVICE_KEY in ${!DEVICE_LIST[@]}; do
+#         declare DEVICE_VALUE="${DEVICE_LIST[$DEVICE_KEY]}"
+#         echo -e "$IOMMU_GROUP_DEVICE_KEY\t=> $DEVICE_VALUE\n"
 #     done
-
-#     echo
 # done
