@@ -34,15 +34,17 @@
 
     function IsEnum
     {
-        IsNonZero "$( eval "echo \"\${#$1[@]}\"" )" || return "$?"
+        local -n ENUM_REF="$1"
+        IsNonZero "${!ENUM_REF[@]}" || return "$?"
         return "$?"
     }
 
     function IsArray
     {
         IsEnum "$1" || return "$?"
+        local -n ENUM_REF="$1"
 
-        for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+        for KEY in "${!ENUM_REF[@]}"; do
             IsInt "$KEY" || return 1
         done
 
@@ -52,8 +54,9 @@
     function IsList
     {
         IsEnum "$1" || return "$?"
+        local -n ENUM_REF="$1"
 
-        for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+        for KEY in "${!ENUM_REF[@]}"; do
             IsInt "$KEY" || return 0
         done
 
@@ -148,7 +151,10 @@
         IsNotNull "$1" || return "$?"
         IsEnum "$1" || return "$?"
 
-        for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+        local -n ENUM_REF="$1"
+
+        # for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
+        for KEY in ${!ENUM_REF[@]}; do
             AreEqual "$KEY" "$2" && return "$?"
         done
 
@@ -157,9 +163,9 @@
 
     function HasValue
     {
-        local -n REFERENCE="$1"
-        echo "'${!REFERENCE}'"
-        [ -v "${!REFERENCE}" ] || IsEnum "$1"
+        local -n VAR_REF="$1"
+        echo "'${!VAR_REF}'"
+        [ -v "${!VAR_REF}" ] || IsEnum "$1"
         return "$?"
     }
 # </functions>
@@ -206,14 +212,9 @@
     {
         IsNotNull "$3" || return "$?"
         HasKey "$1" "$2" || return "$?"
-        local LIST_REFERENCE
-        local -r GET_LIST="LIST_REFERENCE=\"\${$1[@]}\""
-        eval "$GET_LIST"
-        local -r KEY="$2"
-        local -r VALUE="$3"
-        LIST_REFERENCE[$KEY]="$VALUE"
-        local -r SET_LIST="$1=\${LIST_REFERENCE[@]}\""
-        eval "$SET_LIST"
+        local -n LIST_REF="$1"
+        LIST_REF[$2]="$3"
+        eval "$1=\${LIST_REF[@]}\""
         return "$?"
     }
 # </functions>
@@ -350,14 +351,18 @@
     }
 # </functions>
 
-function PrintList
-{
-    IsEnum "$1" || return "$?"
+# <summary> Presentation </summary>
+# <functions>
+    function PrintList
+    {
+        IsEnum "$1" || return "$?"
+        local -n ENUM_REF="$1"
 
-    for KEY in $( eval "echo \"\${!$1[@]}\"" ); do
-        local VALUE=$( eval "echo \"\${$1[$KEY]}\"" )
-        echo -e "$KEY\t=> $VALUE"
-    done
+        for KEY in "${!ENUM_REF[@]}"; do
+            local VALUE=$( eval "echo \"\${$1[$KEY]}\"" )
+            echo -e "$KEY\t=> $VALUE"
+        done
 
-    return 1
-}
+        return 1
+    }
+# </functions>
