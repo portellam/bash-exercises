@@ -369,7 +369,7 @@
         local -n REFERENCE="$1"
 
         for KEY in "${!REFERENCE[@]}"; do
-            echo -e "$KEY\t=> ${REFERENCE[$KEY]]}"
+            echo -e "$KEY\t=> ${REFERENCE[$KEY]}"
         done
 
         return 0
