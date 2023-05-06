@@ -223,9 +223,39 @@ function GetDevicesListForIOMMUGroup
     return 0
 }
 
-declare -A IOMMU_GROUP_DEVICE_LIST
-declare -a IOMMU_GROUP_ID_LIST=$( ls /sys/kernel/iommu_groups/ )
 declare -A IOMMU_GROUP_ID_LIST_WITH_INTERNAL IOMMU_GROUP_ID_LIST_WITH_EXTERNAL IOMMU_GROUP_ID_LIST_WITH_INTERNAL_VGA IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA
+# declare -A IOMMU_GROUP_CLASS_LIST IOMMU_GROUP_DRIVER_LIST IOMMU_GROUP_HW_ID_LIST IOMMU_GROUP_NAME_LIST IOMMU_GROUP_PCI_ID_LIST IOMMU_GROUP_VENDOR_LIST
+declare -A DEVICE_CLASS_LIST DEVICE_DRIVER_LIST DEVICE_HW_ID_LIST DEVICE_NAME_LIST DEVICE_PCI_ID_LIST DEVICE_VENDOR_LIST
+declare -A
+declare -A IOMMU_GROUP_DEVICE_LIST
+
+function SetListsForIOMMUGroups
+{
+    local -a THIS_IOMMU_GROUP_ID_ARRAY=$( ls /sys/kernel/iommu_groups/ | sort -n )
+
+    for IOMMU_GROUP_ID in ${THIS_IOMMU_GROUP_ID_ARRAY[@]}; do
+        local -a THIS_DEVICE_ARRAY=$( ls /sys/kernel/iommu_groups/$IOMMU_GROUP_ID/devices/ )
+
+        for DEVICE in ${THIS_DEVICE_ARRAY[@]}; do
+            local CLASS DRIVER HW_ID NAME PCI_ID VENDOR
+
+            SetDeviceClass "$DEVICE" "CLASS"
+            SetDeviceDriver "$DEVICE" "DRIVER"
+            SetDeviceHardwareID "$DEVICE" "HW_ID"
+            SetDeviceName "$DEVICE" "NAME"
+            SetDeviceVendor "$DEVICE" "VENDOR"
+
+            DEVICE_CLASS_LIST[$DEVICE]+="$CLASS"
+            DEVICE_DRIVER_LIST[$DEVICE]+="$DRIVER"
+            DEVICE_HW_ID_LIST[$DEVICE]+="$HW_ID"
+            DEVICE_NAME_LIST[$DEVICE]+="$NAME"
+            DEVICE_VENDOR_LIST[$DEVICE]+="$VENDOR"
+            IOMMU_GROUP_DEVICE_LIST[$IOMMU_GROUP_ID]+="$DEVICE "
+        done
+    done
+
+    return 0
+}
 
 function SetListsForHostAndVFIO_IOMMUGroups
 {
@@ -256,7 +286,18 @@ function SetListsForHostAndVFIO_IOMMUGroups
     return 0
 }
 
-SetListsForHostAndVFIO_IOMMUGroups
+SetListsForIOMMUGroups
+PrintEnum "IOMMU_GROUP_DEVICE_LIST"
+echo $?
+
+
+for IOMMU_GROUP_ID in $( ls /sys/kernel/iommu_groups/ | sort -n ); do
+    echo $IOMMU_GROUP_ID
+    echo -e ${IOMMU_GROUP_DEVICE_LIST[$IOMMU_GROUP_ID]}
+done
+
+
+# SetListsForHostAndVFIO_IOMMUGroups
 # PrintList "IOMMU_GROUP_ID_LIST_WITH_INTERNAL"
 # echo
 # PrintList "IOMMU_GROUP_ID_LIST_WITH_INTERNAL_VGA"
@@ -265,12 +306,12 @@ SetListsForHostAndVFIO_IOMMUGroups
 # echo
 # PrintList "IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA"
 
-for DEVICE in ${IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA[@]}; do
-    echo $DEVICE
-    declare CLASS
-    SetDeviceClass "$DEVICE" "CLASS"
-    echo $CLASS
-done
+# for DEVICE in ${IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA[@]}; do
+#     echo $DEVICE
+#     declare CLASS
+#     SetDeviceClass "$DEVICE" "CLASS"
+#     echo $CLASS
+# done
 
 
 # for IOMMU_GROUP_ID in ${IOMMU_GROUP_ID_LIST[@]}; do
