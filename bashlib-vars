@@ -166,6 +166,15 @@
 
 # <summary> List validation </summary>
 # <functions>
+    function AddValue
+    {
+        IsString "$2" || return "$?"
+        IsArray "$1" || return "$?"
+        local -n REFERENCE="$1"
+        REFERENCE+=( "$1" )
+        return 0
+    }
+
     function AddKeyAndValue
     {
         HasKey "$1" "$2" && return 1
