@@ -9,7 +9,6 @@
 
 source bashlib-vars
 
-declare -gA IOMMU_GROUP_DEVICE_LIST
 declare -g REGEX_DOMAIN_ID='^[0-9A-F][1-9A-F]$'
 
 function DoesIOMMUGroupHaveExternalDevices
@@ -53,7 +52,7 @@ function IsIOMMUGroupNotBindedToVFIO
 
 function IsDeviceExternal
 {
-    IsNotNull "$1" || return "$?"
+    IsString "$1" || return "$?"
     local FULL_ID="$1"
     local -u DOMAIN_ID=$( echo "$FULL_ID" | cut -d ':' -f 2 )
 
@@ -66,7 +65,7 @@ function IsDeviceExternal
 
 function IsDeviceVGA
 {
-    IsNotNull "$1" || return "$?"
+    IsString "$1" || return "$?"
     local FULL_ID="$1"
     local -l CLASS="$( lspci -ms $FULL_ID | cut -d '"' -f 2 )"
 
@@ -80,7 +79,7 @@ function IsDeviceVGA
 
 function IsDeviceBindedToVFIO
 {
-    IsNotNull "$1" || return "$?"
+    IsString "$1" || return "$?"
     local FULL_ID="$1"
     local -l DRIVER="$( lspci -ks "$FULL_ID" | grep -i "driver" | cut -d " " -f 5 )"
 
@@ -94,8 +93,8 @@ function IsDeviceBindedToVFIO
 
 function SetDeviceClass
 {
-    IsNotNull "$2" || return "$?"
-    IsNotNull "$1" || return "$?"
+    IsString "$2" || return "$?"
+    IsString "$1" || return "$?"
     local DEVICE="$1"
     local -n REFERENCE="$2"
     REFERENCE="$( lspci -ms $DEVICE | cut -d '"' -f 2 )"
@@ -104,8 +103,8 @@ function SetDeviceClass
 
 function SetDeviceDriver
 {
-    IsNotNull "$2" || return "$?"
-    IsNotNull "$1" || return "$?"
+    IsString "$2" || return "$?"
+    IsString "$1" || return "$?"
     local DEVICE="$1"
     local -n REFERENCE="$2"
     REFERENCE="$( lspci -ks "$DEVICE" | grep -i "driver" | cut -d " " -f 5 )"
@@ -114,8 +113,8 @@ function SetDeviceDriver
 
 function SetDeviceHardwareID
 {
-    IsNotNull "$2" || return "$?"
-    IsNotNull "$1" || return "$?"
+    IsString "$2" || return "$?"
+    IsString "$1" || return "$?"
     local DEVICE="$1"
     local -n REFERENCE="$2"
     REFERENCE="$( lspci -ns $DEVICE | cut -d " " -f 3 )"
@@ -124,8 +123,8 @@ function SetDeviceHardwareID
 
 function SetDeviceName
 {
-    IsNotNull "$2" || return "$?"
-    IsNotNull "$1" || return "$?"
+    IsString "$2" || return "$?"
+    IsString "$1" || return "$?"
     local DEVICE="$1"
     local -n REFERENCE="$2"
     REFERENCE="$( lspci -ms $DEVICE  | cut -d '"' -f 6 )"
@@ -134,8 +133,8 @@ function SetDeviceName
 
 function SetDeviceVendor
 {
-    IsNotNull "$2" || return "$?"
-    IsNotNull "$1" || return "$?"
+    IsString "$2" || return "$?"
+    IsString "$1" || return "$?"
     local DEVICE="$1"
     local -n REFERENCE="$2"
     REFERENCE="$( lspci -ms $DEVICE | cut -d '"' -f 4 )"
@@ -223,11 +222,11 @@ function GetDevicesListForIOMMUGroup
     return 0
 }
 
-declare -A IOMMU_GROUP_ID_LIST_WITH_INTERNAL IOMMU_GROUP_ID_LIST_WITH_EXTERNAL IOMMU_GROUP_ID_LIST_WITH_INTERNAL_VGA IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA
+# declare -A IOMMU_GROUP_ID_LIST_WITH_INTERNAL IOMMU_GROUP_ID_LIST_WITH_EXTERNAL IOMMU_GROUP_ID_LIST_WITH_INTERNAL_VGA IOMMU_GROUP_ID_LIST_WITH_EXTERNAL_VGA
 # declare -A IOMMU_GROUP_CLASS_LIST IOMMU_GROUP_DRIVER_LIST IOMMU_GROUP_HW_ID_LIST IOMMU_GROUP_NAME_LIST IOMMU_GROUP_PCI_ID_LIST IOMMU_GROUP_VENDOR_LIST
 declare -A DEVICE_CLASS_LIST DEVICE_DRIVER_LIST DEVICE_HW_ID_LIST DEVICE_NAME_LIST DEVICE_PCI_ID_LIST DEVICE_VENDOR_LIST
-declare -A
-declare -A IOMMU_GROUP_DEVICE_LIST
+# declare -A IOMMU_GROUP_DEVICE_LIST
+declare -a IOMMU_GROUP_DEVICE_LIST
 
 function SetListsForIOMMUGroups
 {
@@ -287,15 +286,16 @@ function SetListsForHostAndVFIO_IOMMUGroups
 }
 
 SetListsForIOMMUGroups
+# PrintEnum "IOMMU_GROUP_DEVICE_LIST"
+# echo $?
+
+# for IOMMU_GROUP_ID in $( ls /sys/kernel/iommu_groups/ | sort -n ); do
+#     echo $IOMMU_GROUP_ID
+#     echo -e ${IOMMU_GROUP_DEVICE_LIST[$IOMMU_GROUP_ID]}
+# done
+
 PrintEnum "IOMMU_GROUP_DEVICE_LIST"
 echo $?
-
-
-for IOMMU_GROUP_ID in $( ls /sys/kernel/iommu_groups/ | sort -n ); do
-    echo $IOMMU_GROUP_ID
-    echo -e ${IOMMU_GROUP_DEVICE_LIST[$IOMMU_GROUP_ID]}
-done
-
 
 # SetListsForHostAndVFIO_IOMMUGroups
 # PrintList "IOMMU_GROUP_ID_LIST_WITH_INTERNAL"
