@@ -6,11 +6,6 @@
 # Author(s):        Alex Portell <github.com/portellam>
 # Maintainer(s):    Alex Portell <github.com/portellam>
 
-# <summary> Libraries </summary>
-# <code>
-    source bashlib-vars
-# </code>
-
 # <summary> Validation </summary>
 # <functions>
     function IsBool
