@@ -164,22 +164,12 @@ function PrintThisIOMMUGroupAndDevices
     return 0
 }
 
-function WillHostHaveVGADeviceAfterAnyVFIOSetup
+function WillHostHaveVGADeviceAfterVFIOSetup
 {
-    IsEnum "IOMMU_GROUPS_FOR_HOST_LIST" || return 1
+    IsEnum "$1" || return 1
+    local -n REFERENCE="$1"
 
-    for IOMMU_GROUP_ID in ${IOMMU_GROUPS_FOR_HOST_LIST[@]}; do
-        DoesIOMMUGroupHaveVGADevice "$IOMMU_GROUP_ID" && return 0
-    done
-
-    return 1
-}
-
-function WillHostHaveVGADeviceAfterMultibootVFIOSetup
-{
-    IsEnum "IOMMU_GROUP_ID_LIST" || return 1
-
-    for IOMMU_GROUP_ID in ${IOMMU_GROUP_ID_LIST[@]}; do
+    for IOMMU_GROUP_ID in ${REFERENCE[@]}; do
         DoesIOMMUGroupHaveVGADevice "$IOMMU_GROUP_ID" && return 0
     done
 
@@ -187,5 +177,25 @@ function WillHostHaveVGADeviceAfterMultibootVFIOSetup
 }
 
 Parse_GetParameters
+
 PrintEnum "IOMMU_GROUP_ID_LIST"
+echo $?
+
+WillHostHaveVGADeviceAfterVFIOSetup "IOMMU_GROUP_ID_LIST"
+echo $?
+
+LIST_ALL_WITHOUT_VGA=( 0 $( seq 2 12  ) $( seq 14 16  ) )
+
+PrintEnum "LIST_ALL_WITHOUT_VGA"
+echo $?
+
+WillHostHaveVGADeviceAfterVFIOSetup "LIST_ALL_WITHOUT_VGA"
+echo $?
+
+LIST_ALL_WITH_ONE_VGA=( 0 $( seq 2 16  ) )
+
+PrintEnum "LIST_ALL_WITH_ONE_VGA"
+echo $?
+
+WillHostHaveVGADeviceAfterVFIOSetup "LIST_ALL_WITH_ONE_VGA"
 echo $?
