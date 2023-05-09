@@ -2,45 +2,21 @@
 
 #
 # Filename:         bashlib-vars
-# Description:      Variable and file type, value, etc. validation.
+# Description:      Generic data type functions and validation.
 # Author(s):        Alex Portell <github.com/portellam>
 # Maintainer(s):    Alex Portell <github.com/portellam>
-#
 
-# TODO:
-#    test functions
-#       -var type validation    good
-#       -var comp validation    good
-#       -var ref validation     good
-#       -var ref modification   pending
-#       -file type validation   pending
-#       -file comp validation   pending
+# <summary> Libraries </summary>
+# <code>
+    source bashlib-vars
+# </code>
 
-# <summary> Data type validation </summary>
+# <summary> Validation </summary>
 # <functions>
-    function IsArray
-    {
-        IsEnum "$1" || return "$?"
-        local -n REFERENCE="$1"
-
-        for KEY in "${!REFERENCE[@]}"; do
-            IsInt "$KEY" || return 1
-        done
-
-        return 0
-    }
-
     function IsBool
     {
         [[ "$1" == true ]] \
         || [[ "$1" == false ]]
-        return "$?"
-    }
-
-    function IsEnum
-    {
-        local -n REFERENCE="$1"
-        IsNonZero "${#REFERENCE[@]}"
         return "$?"
     }
 
@@ -49,31 +25,6 @@
         [[ "$1" =~ ^[0-9]+$ ]] \
         || [[ "$1" =~ ^[-][0-9]+$ ]]
         return "$?"
-    }
-
-
-    function IsList
-    {
-        IsEnum "$1" || return "$?"
-        local -n REFERENCE="$1"
-
-        for KEY in "${!REFERENCE[@]}"; do
-            IsInt "$KEY" || return 0
-        done
-
-        return 1
-    }
-
-    function IsNestedList
-    {
-        IsList "$1" || return "$?"
-        local -n REFERENCE="$1"
-
-        for VALUE in "${REFERENCE[@]}"; do
-            IsReference "$VALUE" && return 0
-        done
-
-        return 1
     }
 
     function IsString
@@ -111,7 +62,7 @@
         return "$?"
     }
 
-    function IsDecimal
+        function IsDecimal
     {
         [[ "$1" =~ ^[0-9]+[.]+[0-9]$ ]] \
         || [[ "$1" =~ ^[-][0-9]+[.]+[0-9]$ ]]
@@ -164,205 +115,6 @@
     }
 # </functions>
 
-# <summary> List validation </summary>
-# <functions>
-    function AddValue
-    {
-        IsString "$2" || return "$?"
-        IsArray "$1" || return "$?"
-        local -n REFERENCE="$1"
-        REFERENCE+=( "$1" )
-        return 0
-    }
-
-    function AddKeyAndValue
-    {
-        HasKey "$1" "$2" && return 1
-        local -n REFERENCE="$1"
-        REFERENCE[$2]="$3"
-        return "$?"
-    }
-
-    function HasKey
-    {
-        IsString "$2" || return "$?"
-        IsString "$1" || return "$?"
-        IsEnum "$1" || return "$?"
-        local -n REFERENCE="$1"
-
-        for KEY in ${!REFERENCE[@]}; do
-            AreEqual "$KEY" "$2" && return "$?"
-        done
-
-        return 1
-    }
-
-    function HasValue
-    {
-        IsString "$1" || return "$?"
-        local -n REFERENCE="$1"
-        [ -v "${!REFERENCE}" ] || IsEnum "$1"
-        return "$?"
-    }
-
-    function RemoveKey
-    {
-        HasKey "$1" "$2" || return "$?"
-        local -n REFERENCE="$1"
-        REFERENCE[$2]="$3"
-        unset REFERENCE[$2]
-        return "$?"
-    }
-
-    function RemoveValue
-    {
-        HasKey "$1" "$2" || return "$?"
-        local -n REFERENCE="$1"
-        REFERENCE[$2]=""
-        return "$?"
-    }
-
-    function ReplaceValue
-    {
-        HasKey "$1" "$2" || return "$?"
-        local -n REFERENCE="$1"
-        REFERENCE[$2]="$3"
-        return "$?"
-    }
-# </functions>
-
-# <summary> File validation </summary>
-# <functions>
-    function FileHasSetGroupId
-    {
-        [ -g "$1" ]
-        return "$?"
-    }
-
-    function FileHasSetUserId
-    {
-        [ -u "$1" ]
-        return "$?"
-    }
-
-    function FileHasStickyBitId
-    {
-        [ -k "$1" ]
-        return "$?"
-    }
-
-    function IsFile
-    {
-        [ -a "$1" ] || [ -e "$1" ]
-        return "$?"
-    }
-
-    function IsBlockFile
-    {
-        [ -b "$1" ]
-        return "$?"
-    }
-
-    function IsCharacterFile
-    {
-        [ -c "$1" ]
-        return "$?"
-    }
-
-    function IsFileExecutable
-    {
-        [ -x "$1" ]
-        return "$?"
-    }
-
-    function IsFileModified
-    {
-        [ -N "$1" ]
-        return "$?"
-    }
-
-    function IsFileFIFO
-    {
-        [ -p "$1" ]
-        return "$?"
-    }
-
-    function IsFileNotEmpty
-    {
-        [ -s "$1" ]
-        return "$?"
-    }
-
-    function IsFileOwnedByGroup
-    {
-        [ -G "$1" ]
-        return "$?"
-    }
-
-    function IsFileOwnedByUser
-    {
-        [ -O "$1" ]
-        return "$?"
-    }
-
-    function IsFileReadable
-    {
-        [ -r "$1" ]
-        return "$?"
-    }
-
-    function IsFileSocket
-    {
-        [ -S "$1" ]
-        return "$?"
-    }
-
-    function IsFileSymLink
-    {
-        [ -L "$1" ] || [ -h "$1" ]
-        return "$?"
-    }
-
-    function IsFileWritable
-    {
-        [ -w "$1" ]
-        return "$?"
-    }
-
-    function IsPathFile
-    {
-        [ -d "$1" ]
-        return "$?"
-    }
-
-    function IsRegularFile
-    {
-        [ -f "$1" ]
-        return "$?"
-    }
-# </functions>
-
-# <summary> File comparisons </summary>
-# <functions>
-    function AreSame
-    {
-        [ "$1" -ef "$2" ]
-        return "$?"
-    }
-
-    function IsNewer
-    {
-        [ "$1" -nt "$2" ]
-        return "$?"
-    }
-
-    function IsOlder
-    {
-        [ "$1" -ot "$2" ]
-        return "$?"
-    }
-# </functions>
-
 # <summary> Presentation </summary>
 # <functions>
     function Print
@@ -371,24 +123,4 @@
         echo -e "$1"
         return 0
     }
-
-    function PrintEnum
-    {
-        IsEnum "$1" || return "$?"
-        local -n REFERENCE="$1"
-
-        for KEY in "${!REFERENCE[@]}"; do
-            echo -e "$KEY\t=> ${REFERENCE[$KEY]}"
-        done
-
-        return 0
-    }
-
-    # function PrintString
-    # {
-    #     IsReference "$1" || return "$?"
-    #     local -n REFERENCE="$1"
-    #     echo -e "$REFERENCE"
-    #     return 0
-    # }
 # </functions>
